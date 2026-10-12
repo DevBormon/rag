@@ -1,29 +1,4 @@
-services:
-
-  ollama:
-    image: ollama/ollama:latest
-    container_name: ollama
-
-    ports:
-      - "11434:11434"
-
-    volumes:
-      - ollama_data:/root/.ollama
-
-    environment:
-      - NVIDIA_VISIBLE_DEVICES=all
-      - NVIDIA_DRIVER_CAPABILITIES=compute,utility
-
-    deploy:
-      resources:
-        reservations:
-          devices:
-            - driver: nvidia
-              count: all
-              capabilities: [gpu]
-
-    restart: unless-stopped
-
+services:    
   chromadb:
     image: chromadb/chroma:latest
     container_name: chromadb
@@ -37,5 +12,4 @@ services:
     restart: unless-stopped
 
 volumes:
-  ollama_data:
   chroma_data:

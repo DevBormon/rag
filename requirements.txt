@@ -1,5 +1,10 @@
 pocketflow>=0.0.3
+python-dotenv>=1.2.4
 numpy>=2.5.2
-openai>=3.6.0
-chromadb>=1.5.9
-langchain-text-splitters>=1.1.2
+openai>=1.0.0
+chromadb>=0.5.0
+langchain-text-splitters>=0.3.0
+fastapi>=0.115.0
+uvicorn>=0.32.0
+python-multipart>=0.0.17
+pypdf>=5.0.0

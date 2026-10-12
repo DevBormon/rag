@@ -1,29 +1,57 @@
+import re
+import os
 import numpy as np
-from openai import OpenAI
+from dotenv import load_dotenv
+from openai import OpenAI, AsyncOpenAI
+from pypdf import PdfReader
 
-client = OpenAI(
-    base_url="http://localhost:11434/v1/",
-    api_key="ollama"
-)
+load_dotenv()
 
-def call_llm(prompt):    
+# Sync client (CLI)
+client = OpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))
+openrouter_client = OpenAI(base_url="https://openrouter.ai/api/v1/", api_key=os.environ.get("OPENROUTER_API_KEY"))
+
+# Async client (API streaming)
+async_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))
+
+
+def call_llm(prompt):
     r = client.chat.completions.create(
-        model="deepseek-r1:8b",
+        model="openai/gpt-oss-120b",
         temperature=0.2,
-        messages=[{"role": "user", "content": prompt}]
+        messages=[{"role": "user", "content": prompt}],
     )
-    return r.choices[0].message.content
+    content = r.choices[0].message.content
+    content = re.sub(r"<think>.*?</think>", "", content, flags=re.DOTALL).strip()
+    return content
+
+
+async def call_llm_async(prompt, on_token=None):
+    stream = on_token is not None
+    r = await async_client.chat.completions.create(
+        model="openai/gpt-oss-120b",
+        temperature=0.2,
+        messages=[{"role": "user", "content": prompt}],
+        stream=stream,
+    )
+
+    full = ""
+    async for chunk in r:
+        token = chunk.choices[0].delta.content or ""
+        if token:
+            token = re.sub(r"<think>.*?</think>", "", token, flags=re.DOTALL)
+            full += token
+            if on_token:
+                await on_token(token)
+    return full
+
 
 def get_embedding(text):
-    # client = OpenAI(api_key=os.environ.get("OPENAI_API_KEY", "your-api-key"))
-    
-    response = client.embeddings.create(
-        model="qwen3-embedding:8b",
-        input=text
-    )
-    
-    # Extract the embedding vector from the response
+    response = openrouter_client.embeddings.create(model="nvidia/nemotron-3-embed-1b:free", input=text)
     embedding = response.data[0].embedding
-    
-    # Convert to numpy array for consistency with other embedding functions
     return np.array(embedding, dtype=np.float32)
+
+
+def extract_text_from_pdf(path):
+    reader = PdfReader(path)
+    return "\n".join(page.extract_text() or "" for page in reader.pages)

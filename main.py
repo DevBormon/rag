@@ -1,40 +1,44 @@
-from flow import vector_flow, query_flow
 import os
+from flow import vector_flow, query_flow
+from utils import extract_text_from_pdf
+from nodes import collection
 
-def main():
-    # user_input = input("Enter your question: ")
-    # user_input = "How many vacation days do employees get?"
-    # user_input = "How many vacation days?"
-    # user_input = "How many days of paid annual leave do employees get?"
-    # user_input = "A robot stopped in a corridor and is blinking orange. What do I do?"
-    # user_input = "How much does the Carrier X2 cost and what does the price include?"
-    # user_input = "What color is the Carrier X2?"
-    user_input = "How many stufs in the Aurora Dynamics?"
-    
-    shared = {
-        "texts": {},
-        "chunks": [],
-        "embeddings": [],
-        "query": user_input,
-        "query_embedding": None,
-        "retrieved_document": []
-    }
-    
-    if shared["query"] != "":
-        # print(f"User question: {shared['query']}")
-        
-        query_flow.run(shared)
-        return
-    
-    
-    for filename in os.listdir("data"):
-        if filename.endswith(".txt"):
+shared = {
+    "texts": {},
+    "chunks": [],
+    "embeddings": [],
+    "query": "",
+    "query_embedding": None,
+    "retrieved_document": [],
+}
+
+
+def ensure_ingested():
+
+    if collection.count() == 0:
+        for filename in os.listdir("data"):
             filepath = os.path.join("data", filename)
-            with open(filepath, "r", encoding="utf-8") as f:
-                if filename not in shared["texts"]:
+            if filename.endswith(".txt"):
+                with open(filepath, "r", encoding="utf-8") as f:
                     shared["texts"][filename] = f.read()
-    
-    vector_flow.run(shared)
-    
+            elif filename.endswith(".pdf"):
+                shared["texts"][filename] = extract_text_from_pdf(filepath)
+
+        if shared["texts"]:
+            vector_flow().run(shared)
+            print(f"✅ Ingested {len(shared['chunks'])} chunks")
+
+
+def ask_question(question):
+    shared["query"] = question
+    query_flow().run(shared)
+    return shared.get("generated_answer")
+
+
 if __name__ == "__main__":
-    main()
+    ensure_ingested()
+    while True:
+        q = input("\n🧑 Question: ")
+        if q.lower() in ("exit", "quit"):
+            break
+        print(f"\n🤖 {ask_question(q)}")

@@ -1,23 +1,29 @@
-from pocketflow import Flow
-from nodes import ChunkDocumentsNode, EmbedChunksNode, CreateVectorDBNode, EmbedQueryNode, SearchNode, GenerateAnswerNode
+from pocketflow import Flow, AsyncFlow
+from nodes import (
+    ChunkDocumentsNode, EmbedChunksNode, CreateVectorDBNode,
+    EmbedQueryNode, SearchNode, GenerateAnswerNode, AsyncGenerateAnswerNode
+)
 
-def create_vector_flow():
-    chunk_docs_node = ChunkDocumentsNode()
-    embed_chunks = EmbedChunksNode()
-    vector_db = CreateVectorDBNode()
-    
-    chunk_docs_node >> embed_chunks >> vector_db
-    
-    return Flow(start=chunk_docs_node)
 
-def create_query_flow():
-    query_embed = EmbedQueryNode()
+def vector_flow():
+    chunk_docs = ChunkDocumentsNode()
+    embed = EmbedChunksNode()
+    vdb = CreateVectorDBNode()
+    chunk_docs >> embed >> vdb
+    return Flow(start=chunk_docs)
+
+
+def query_flow():
+    embed = EmbedQueryNode()
     search = SearchNode()
     answer = GenerateAnswerNode()
-    query_embed >> search >> answer
-    # Placeholder for query flow creation
-    return Flow(start=query_embed)
+    embed >> search >> answer
+    return Flow(start=embed)
 
-query_flow = create_query_flow()
 
-vector_flow = create_vector_flow()
+def async_query_flow():
+    embed = EmbedQueryNode()
+    search = SearchNode()
+    answer = AsyncGenerateAnswerNode()
+    embed >> search >> answer
+    return AsyncFlow(start=embed)
