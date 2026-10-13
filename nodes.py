@@ -19,6 +19,11 @@ class ChunkDocumentsNode(BatchNode):
         chunks = splitter.create_documents([text], metadatas=[{"source": file_name}])
         return chunks
 
+    def exec_fallback(self, prep_res, exc):
+        print(f"Error Chunking Node : {exc}")
+        # Provide a simple fallback instead of crashing
+        raise exc
+
     def post(self, shared, prep_res, exec_res_list):
         for file_chunks in exec_res_list:
             for chunk in file_chunks:
@@ -39,6 +44,11 @@ class EmbedChunksNode(BatchNode):
             "embedding": embedding,
         }
 
+    def exec_fallback(self, prep_res, exc):
+        print(f"Error Embding Node : {exc}")
+        # Provide a simple fallback instead of crashing
+        raise exc
+
     def post(self, shared, prep_res, exec_res_list):
         for res in exec_res_list:
             shared["embeddings"].append(res)
@@ -47,9 +57,16 @@ class EmbedChunksNode(BatchNode):
 
 class CreateVectorDBNode(Node):
     def prep(self, shared):
-        return shared["embeddings"]
+        print(f"DEL : {shared["collection_del_status"]}")
+        return shared["collection_del_status"], shared["embeddings"]
 
-    def exec(self, embeddings):
+    def exec(self, prep_res):
+        collection_del_status, embeddings = prep_res
+        if collection_del_status:
+            global collection
+            collection = chroma_client.get_or_create_collection("rag_docs")
+
+        print(f"Total documents in collection: {collection.count()}")
         for item in embeddings:
             collection.add(
                 ids=[item["id"]],
@@ -58,6 +75,11 @@ class CreateVectorDBNode(Node):
                 embeddings=[item["embedding"]],
             )
         return collection
+
+    def exec_fallback(self, prep_res, exc):
+        print(f"Error Vector DB entry : {exc}")
+        # Provide a simple fallback instead of crashing
+        raise exc
 
     def post(self, shared, prep_res, exec_res):
         print(f"✅ Added {len(shared['embeddings'])} chunks to vector DB")

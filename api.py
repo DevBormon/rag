@@ -3,18 +3,27 @@ import shutil
 import asyncio
 import json
 from contextlib import asynccontextmanager
-from typing import List
 
 from fastapi import FastAPI, UploadFile, File
 from fastapi.responses import StreamingResponse
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from flow import vector_flow, async_query_flow
 from nodes import chroma_client, collection
-from utils import extract_text_from_pdf, get_embedding
+from utils import extract_text_from_pdf
+
+shared = {
+    "texts": {},
+    "chunks": [],
+    "embeddings": [],
+    "query": "",
+    "query_embedding": None,
+    "retrieved_document": [],
+    "queue": "",
+    "collection_del_status": False
+}
 
 
 @asynccontextmanager
@@ -23,15 +32,8 @@ async def lifespan(app: FastAPI):
     os.makedirs("data", exist_ok=True)
     os.makedirs("static", exist_ok=True)
 
-    if collection.count() == 0:
-        shared = {
-            "texts": {},
-            "chunks": [],
-            "embeddings": [],
-            "query": "",
-            "query_embedding": None,
-            "retrieved_document": [],
-        }
+    if os.listdir("data") and collection.count() == 0:
+
         for filename in os.listdir("data"):
             filepath = os.path.join("data", filename)
             if filename.endswith(".txt"):
@@ -47,11 +49,10 @@ async def lifespan(app: FastAPI):
 
 
 app = FastAPI(title="RAG Chatbot", lifespan=lifespan)
+
 app.add_middleware(
     CORSMiddleware, allow_origins=["*"], allow_methods=["*"], allow_headers=["*"]
 )
-
-async_query_flow = async_query_flow()
 
 
 class Query(BaseModel):
@@ -63,14 +64,8 @@ async def chat(query: Query):
     """Non-streaming JSON endpoint"""
     from flow import query_flow
 
-    shared = {
-        "texts": {},
-        "chunks": [],
-        "embeddings": [],
-        "query": query.question,
-        "query_embedding": None,
-        "retrieved_document": [],
-    }
+    shared["query"] = query.question
+
     query_flow().run(shared)
     return {
         "answer": shared.get("generated_answer"),
@@ -83,17 +78,10 @@ async def chat_stream(query: Query):
     """SSE streaming endpoint"""
     q = asyncio.Queue()
 
-    shared = {
-        "texts": {},
-        "chunks": [],
-        "embeddings": [],
-        "query": query.question,
-        "query_embedding": None,
-        "retrieved_document": [],
-        "queue": q,
-    }
+    shared["query"] = query.question
+    shared["queue"] = q
 
-    asyncio.create_task(async_query_flow.run_async(shared))
+    asyncio.create_task(async_query_flow().run_async(shared))
 
     async def event_generator():
         while True:
@@ -108,20 +96,45 @@ async def chat_stream(query: Query):
 
 
 @app.delete("/db-clear")
-async def clear_db():
-    chroma_client.delete_collection("rag_docs")
-    return {"message": "Database cleared successfully"}
+def clear_db():
+    results = []
+    try:
+        # 1. Delete the Chroma collection
+        try:
+            chroma_client.delete_collection("rag_docs")
+            shared["collection_del_status"] = True
+            results.append({"msg": "Database cleared successfully"})
+        except Exception as e:
+            # Optional: Ignore if the collection doesn't exist yet
+            print(f"Error DB Del : {e}")
+            results.append({"error": 'No data exiest in database'})
+            pass
+
+        # 2. Safely remove the local 'data' folder (or file if it's a file)
+        if os.path.exists("data"):
+            for filename in os.listdir("data"):
+                file_path = os.path.join("data", filename)
+
+                # Check if it's a file or a symbolic link, then remove
+                if os.path.isfile(file_path) or os.path.islink(file_path):
+                    os.remove(file_path)
+                    results.append({"msg": "Data cleared successfully"})
+
+    except Exception as e:
+        # Catch any unexpected errors and return a clean HTTP 500 response
+        results.append({"error": str(e)})
+
+
+    return {"results": results}
 
 
 @app.post("/upload")
-async def upload(files: List[UploadFile] = File(...)):
+async def upload(files: list[UploadFile] = File(...)):
     """Upload multiple PDF or TXT files and index them."""
 
     os.makedirs("data", exist_ok=True)
 
     results = []
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=800, chunk_overlap=150)
 
     for file in files:
         try:
@@ -158,21 +171,13 @@ async def upload(files: List[UploadFile] = File(...)):
                 )
                 continue
 
-            # Split text into chunks
-            chunks = splitter.create_documents([text], metadatas=[{"source": filename}])
+            shared["texts"][filename] = text
 
-            # Embed and index chunks
-            for i, chunk in enumerate(chunks):
-                emb = get_embedding(chunk.page_content)
+            if shared["texts"]:
+                vector_flow().run(shared)
+                print(f"✅ Upload ingestion: {len(shared['chunks'])} chunks")
 
-                collection.add(
-                    ids=[f"{filename}_chunk_{i}"],
-                    metadatas=[{"source": filename}],
-                    documents=[chunk.page_content],
-                    embeddings=[emb],
-                )
-
-            results.append({"filename": filename, "chunks": len(chunks)})
+            results.append({"filename": filename, "chunks": len(shared["chunks"])})
 
         except Exception as e:
             results.append({"filename": file.filename, "error": str(e)})

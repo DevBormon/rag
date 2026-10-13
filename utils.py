@@ -9,7 +9,7 @@ load_dotenv()
 
 # Sync client (CLI)
 client = OpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))
-openrouter_client = OpenAI(base_url="https://openrouter.ai/api/v1/", api_key=os.environ.get("OPENROUTER_API_KEY"))
+ollama_client = OpenAI(base_url="http://localhost:11434/v1/", api_key="ollama")
 
 # Async client (API streaming)
 async_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))
@@ -47,7 +47,7 @@ async def call_llm_async(prompt, on_token=None):
 
 
 def get_embedding(text):
-    response = openrouter_client.embeddings.create(model="nvidia/nemotron-3-embed-1b:free", input=text)
+    response = ollama_client.embeddings.create(model="nomic-embed-text:v1.5", input=text)
     embedding = response.data[0].embedding
     return np.array(embedding, dtype=np.float32)
 
