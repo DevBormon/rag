@@ -176,13 +176,24 @@
             font-size: 15px;
         }
 
-        .button-container {
+        .widget-wrapper {
             display: flex;
-            justify-content: space-between;
+            flex-direction: column;
             width: 100%;
             margin-bottom: 13px;
         }
 
+        .button-container {
+            display: flex;
+            justify-content: space-between;
+            width: 100%;
+        }
+
+        #clearStatus {
+            margin-top: 10px;
+            font-size: 14px;
+            min-height: 20px;
+        }
 
         .text-right {
             text-align: right;
@@ -215,10 +226,14 @@
 <body>
     <div class="container">
         <h1>📚 RAG Chatbot</h1>
-        <div class="button-container">
-            <button class="common_button" onclick="showUpload(true)">Upload</button>
-            <button class="common_button" onclick="clearDB()">Clear</button>
+        <div class="widget-wrapper">
+            <div class="button-container">
+                <button id="show_upload" class="common_button" onclick="showUpload(true)">Upload</button>
+                <button id="clear_db" class="common_button" onclick="clearDB()">Clear</button>
+            </div>
+            <div id="clearStatus"></div>
         </div>
+
         <div class="upload-card">
             <div class="upload-header">
                 <h3>Upload Document</h3>
@@ -242,7 +257,7 @@
 
     <script>
         function showUpload(status) {
-            const navigetBox = document.querySelectorAll(".button-container");
+            const navigetBox = document.querySelectorAll(".widget-wrapper");
             const uploadCard = document.querySelectorAll('.upload-card');
             uploadCard.forEach(el => {
                 el.style.display = status === true ? "block" : "none";
@@ -253,81 +268,58 @@
         }
 
         async function clearDB() {
-            const res = await fetch('/db-clear', { method: 'DELETE' });
+            const clearStatus = document.getElementById('clearStatus');
+            const show_up_btn = document.getElementById('show_upload');
+            const clear_btn = document.getElementById('clear_db');
 
-            if (!res.ok) {
-                throw new Error('Failed to clear database');
-            }
+            show_up_btn.disabled = true;
+            clear_btn.disabled = true;
 
-            const data = await res.json();
-            console.log(data.message);
-        }
-
-        const chat = document.getElementById('chat');
-        const qInput = document.getElementById('q');
-
-        async function uploadFile() {
-            const input = document.getElementById('fileInput');
-            const btn = document.getElementById('uploadBtn');
-            const uploadStatus = document.getElementById('uploadStatus');
-
-            if (!input.files.length) {
-                uploadStatus.textContent = 'Select at least one file';
-                uploadStatus.className = 'error';
-                return;
-            }
-
-            const form = new FormData();
-
-            for (const file of input.files) {
-                form.append('files', file);
-            }
-
-            btn.disabled = true;
-            uploadStatus.textContent = 'Uploading files...';
-            uploadStatus.className = '';
+            clearStatus.textContent = 'Clear data...';
+            clearStatus.className = '';
 
             try {
-                const res = await fetch('/upload', {
-                    method: 'POST',
-                    body: form
-                });
+                const res = await fetch('/db-clear', { method: 'DELETE' });
 
                 const data = await res.json();
 
                 if (!res.ok) {
-                    throw new Error(data.detail || 'Upload failed');
+                    throw new Error('Failed to clear database');
                 }
 
                 const results = data.results || [];
 
-                const successful = results.filter(r => !r.error);
+                const success = results.filter(r => !r.error);
                 const failed = results.filter(r => r.error);
 
-                uploadStatus.innerHTML = `
-            <div class="success">
-                ✅ ${successful.length} file(s) indexed successfully.
-                Total chunks: ${successful.reduce((sum, f) => sum + f.chunks, 0)}
-            </div>
+                console.log('Success : ', success);
+                console.log('Faild : ', failed);
+                
+
+                clearStatus.innerHTML = `
+            ${success.length ? `
+                <div class="success">
+                    ${success.map(f => `${f.msg}`).join('<br><br>')}
+                </div>
+            ` : ''}
             ${failed.length ? `
                 <div class="error">
-                    ${failed.map(f => `${f.filename}: ${f.error}`).join('<br>')}
+                    ${failed.map(f => `${f.error}`).join('<br><br>')}
                 </div>
             ` : ''}`;
 
-                if (successful.length) {
-                    input.value = '';
-                }
-
             } catch (e) {
-                uploadStatus.textContent = e.message || 'Upload failed';
-                uploadStatus.className = 'error';
+                clearStatus.textContent = e.message || 'Clear process failed';
+                clearStatus.className = 'error';
             } finally {
-                btn.disabled = false;
+                show_up_btn.disabled = false;
+                clear_btn.disabled = false;
             }
         }
 
         async function send() {
+            const chat = document.getElementById('chat');
+            const qInput = document.getElementById('q');
             const question = qInput.value.trim();
             if (!question) return;
 
@@ -376,6 +368,67 @@
                     }
                 }
                 chat.scrollTop = chat.scrollHeight;
+            }
+        }
+
+        async function uploadFile() {
+            const input = document.getElementById('fileInput');
+            const btn = document.getElementById('uploadBtn');
+            const uploadStatus = document.getElementById('uploadStatus');
+
+            if (!input.files.length) {
+                uploadStatus.textContent = 'Select at least one file';
+                uploadStatus.className = 'error';
+                return;
+            }
+
+            const form = new FormData();
+
+            for (const file of input.files) {
+                form.append('files', file);
+            }
+
+            btn.disabled = true;
+            uploadStatus.textContent = 'Uploading files...';
+            uploadStatus.className = '';
+
+            try {
+                const res = await fetch('/upload', {
+                    method: 'POST',
+                    body: form
+                });
+
+                const data = await res.json();
+
+                if (!res.ok) {
+                    throw new Error(data.detail || 'Upload failed');
+                }
+
+                const results = data.results || [];
+
+                const successful = results.filter(r => !r.error);
+                const failed = results.filter(r => r.error);
+
+                uploadStatus.innerHTML = `
+            <div class="success">
+                ✅ ${successful.length} file(s) indexed successfully.
+                Total chunks: ${successful.reduce((sum, f) => sum + f.chunks, 0)}
+            </div>
+            ${failed.length ? `
+                <div class="error">
+                    ${failed.map(f => `${f.filename}: ${f.error}`).join('<br><br>')}
+                </div>
+            ` : ''}`;
+
+                if (successful.length) {
+                    input.value = '';
+                }
+
+            } catch (e) {
+                uploadStatus.textContent = e.message || 'Upload failed';
+                uploadStatus.className = 'error';
+            } finally {
+                btn.disabled = false;
             }
         }
 
