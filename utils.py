@@ -9,7 +9,7 @@ load_dotenv()
 
 # Sync client (CLI)
 client = OpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))
-ollama_client = OpenAI(base_url="http://localhost:11434/v1/", api_key="ollama")
+ollama_client = OpenAI(base_url=os.environ.get("OLLAMA_BASE_URL"), api_key="ollama")
 
 # Async client (API streaming)
 async_client = AsyncOpenAI(base_url="https://api.groq.com/openai/v1/", api_key=os.environ.get("GROQ_API_KEY"))

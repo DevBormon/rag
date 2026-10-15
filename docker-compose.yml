@@ -1,14 +1,35 @@
-services:    
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: build
+    image: rag:1.0.0
+    container_name: rag
+    ports:
+      - "8080:8080"
+    env_file:
+      - .env.docker
+    depends_on:
+      chromadb:
+        condition: service_healthy
   chromadb:
-    image: chromadb/chroma:latest
+    build:
+      context: .
+      dockerfile: Dockerfile
+      target: croma
+    image: croma-db:1.0.0
     container_name: chromadb
-
     ports:
       - "7000:8000"
-
     volumes:
       - chroma_data:/data
-
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      interval: 30s
+      timeout: 30s
+      retries: 3
+      start_period: 30s
     restart: unless-stopped
   ollama:
     image: ollama/ollama:latest

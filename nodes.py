@@ -1,11 +1,12 @@
 from pocketflow import Node, BatchNode, AsyncNode
 from langchain_text_splitters import RecursiveCharacterTextSplitter
 import chromadb
+import os
 
 from utils import call_llm, call_llm_async, get_embedding
 
 # ChromaDB client
-chroma_client = chromadb.HttpClient(host="localhost", port=7000)
+chroma_client = chromadb.HttpClient(host=os.environ.get("CHROMA_HOST"), port=os.environ.get("CHROMA_PORT"))
 collection = chroma_client.get_or_create_collection("rag_docs")
 
 
@@ -65,6 +66,7 @@ class CreateVectorDBNode(Node):
         if collection_del_status:
             global collection
             collection = chroma_client.get_or_create_collection("rag_docs")
+            collection_del_status = False
 
         print(f"Total documents in collection: {collection.count()}")
         for item in embeddings:
@@ -74,7 +76,7 @@ class CreateVectorDBNode(Node):
                 documents=[item["chunk"].page_content],
                 embeddings=[item["embedding"]],
             )
-        return collection
+        return collection_del_status
 
     def exec_fallback(self, prep_res, exc):
         print(f"Error Vector DB entry : {exc}")
@@ -82,6 +84,7 @@ class CreateVectorDBNode(Node):
         raise exc
 
     def post(self, shared, prep_res, exec_res):
+        shared["collection_del_status"] = exec_res
         print(f"✅ Added {len(shared['embeddings'])} chunks to vector DB")
         return "default"
 

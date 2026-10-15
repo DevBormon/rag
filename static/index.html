@@ -14,7 +14,7 @@
 
         body {
             font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
-            background: #f0f2f5;
+            background: #A9A9A9;
             padding: 20px;
         }
 
@@ -23,16 +23,39 @@
             margin: 0 auto;
         }
 
+        .page-header {
+            margin-bottom: 10px;
+            text-align: center;
+        }
+
+        .subtitle {
+            margin-top: 5px;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
         h1 {
             text-align: center;
             color: #1a1a1a;
-            margin-bottom: 24px;
             font-size: 28px;
+        }
+
+        #clear_db {
+            background: #8c8c8c;
+            border-color: var(--border);
+            color: #3b4658;
+            box-shadow: none;
+        }
+
+        #clear_db:hover:not(:disabled) {
+            background: #fff5f5;
+            border-color: #f0c5cb;
+            color: var(--danger);
         }
 
         /* Upload Panel */
         .upload-card {
-            background: white;
+            background: #BEBEBE;
             border-radius: 16px;
             padding: 20px;
             margin-bottom: 20px;
@@ -70,7 +93,7 @@
 
         .common_button {
             padding: 10px 22px;
-            background: #007bff;
+            background: #808080;
             color: white;
             border: none;
             border-radius: 8px;
@@ -80,7 +103,7 @@
         }
 
         .common_button:hover {
-            background: #0056b3;
+            background: #707070;
         }
 
         .common_button:disabled {
@@ -95,7 +118,7 @@
         }
 
         .success {
-            color: #28a745;
+            color: #145214;
         }
 
         .error {
@@ -104,7 +127,7 @@
 
         /* Chat Panel */
         .chat-card {
-            background: white;
+            background: #B8B8B8;
             border-radius: 16px;
             padding: 20px;
             box-shadow: 0 2px 12px rgba(0, 0, 0, 0.08);
@@ -114,7 +137,7 @@
             height: 420px;
             overflow-y: auto;
             padding: 12px;
-            background: #f8f9fa;
+            background: #909090;
             border-radius: 12px;
             margin-bottom: 14px;
             display: flex;
@@ -132,14 +155,14 @@
         }
 
         .user {
-            background: #007bff;
+            background: #6F6F6F;
             color: white;
             align-self: flex-end;
             border-bottom-right-radius: 4px;
         }
 
         .bot {
-            background: #e9ecef;
+            background: #D0D0D0;
             color: #212529;
             align-self: flex-start;
             border-bottom-left-radius: 4px;
@@ -225,11 +248,14 @@
 
 <body>
     <div class="container">
-        <h1>📚 RAG Chatbot</h1>
+        <header class="page-header">
+            <h1>RAG Chatbot</h1>
+            <p class="subtitle">Ask questions and get answers grounded in your documents.</p>
+        </header>
         <div class="widget-wrapper">
             <div class="button-container">
-                <button id="show_upload" class="common_button" onclick="showUpload(true)">Upload</button>
-                <button id="clear_db" class="common_button" onclick="clearDB()">Clear</button>
+                <button id="show_upload" class="common_button" onclick="showUpload(true)">Show Upload</button>
+                <button id="clear_db" class="common_button" onclick="clearDB()">Clear Data</button>
             </div>
             <div id="clearStatus"></div>
         </div>
@@ -237,7 +263,7 @@
         <div class="upload-card">
             <div class="upload-header">
                 <h3>Upload Document</h3>
-                <button class="link-button" onclick="showUpload(false)">Back</button>
+                <button id="back_btn" class="link-button" onclick="showUpload(false)">Back</button>
             </div>
             <div class="upload-row">
                 <input type="file" id="fileInput" accept=".txt,.pdf" multiple>
@@ -257,6 +283,10 @@
 
     <script>
         function showUpload(status) {
+            const input = document.getElementById('fileInput');
+            const uploadStatus = document.getElementById('uploadStatus');
+            const clearStatus = document.getElementById('clearStatus');
+
             const navigetBox = document.querySelectorAll(".widget-wrapper");
             const uploadCard = document.querySelectorAll('.upload-card');
             uploadCard.forEach(el => {
@@ -265,6 +295,12 @@
             navigetBox.forEach(el => {
                 el.style.display = status === true ? "none" : "flex";
             });
+
+            uploadStatus.textContent = '';
+            uploadStatus.className = '';
+            clearStatus.textContent = '';
+            clearStatus.className = '';
+            input.value = '';
         }
 
         async function clearDB() {
@@ -294,7 +330,7 @@
 
                 console.log('Success : ', success);
                 console.log('Faild : ', failed);
-                
+
 
                 clearStatus.innerHTML = `
             ${success.length ? `
@@ -331,7 +367,7 @@
             // Bot placeholder
             const botMsg = document.createElement('div');
             botMsg.className = 'msg bot';
-            botMsg.innerHTML = '<em style="color:#999">Thinking...</em>';
+            botMsg.innerHTML = '<em style="color:#808080">Thinking...</em>';
             chat.appendChild(botMsg);
             chat.scrollTop = chat.scrollHeight;
 
@@ -374,6 +410,7 @@
         async function uploadFile() {
             const input = document.getElementById('fileInput');
             const btn = document.getElementById('uploadBtn');
+            const back_btn = document.getElementById('back_btn');
             const uploadStatus = document.getElementById('uploadStatus');
 
             if (!input.files.length) {
@@ -389,6 +426,7 @@
             }
 
             btn.disabled = true;
+            back_btn.disabled = true;
             uploadStatus.textContent = 'Uploading files...';
             uploadStatus.className = '';
 
@@ -429,6 +467,7 @@
                 uploadStatus.className = 'error';
             } finally {
                 btn.disabled = false;
+                back_btn.disabled = false;
             }
         }
 
