@@ -25,7 +25,7 @@ services:
     volumes:
       - chroma_data:/data
     healthcheck:
-      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat"]
+      test: [ "CMD", "curl", "-f", "http://localhost:8000/api/v2/heartbeat" ]
       interval: 30s
       timeout: 30s
       retries: 3
