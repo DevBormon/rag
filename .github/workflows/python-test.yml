@@ -48,9 +48,8 @@ jobs:
       uses: mr-smithers-excellent/docker-build-push@v7
       with:
         image: devbormon/rag
-        --target: build
-        tags: 1.0.0
+        target: build
+        tags: 1.0.1
         registry: docker.io
-        dockerfile: Dockerfile
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
