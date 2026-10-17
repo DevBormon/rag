@@ -7,6 +7,7 @@ run-name: Testing Python Application. Build triggered by ${{github.actor}}
 
 on:
   push:
+    tags: ['*']
     branches: [ "master" ]
   pull_request:
     branches: [ "master" ]
@@ -26,6 +27,7 @@ jobs:
       uses: actions/setup-python@v7
       with:
         python-version: "3.14"
+        cache: 'pip'
 
     - name: Install dependencies
       run: |
@@ -45,19 +47,24 @@ jobs:
         pytest -q --maxfail=1
 
     - name: Build & push Docker image
+      if: startsWith(github.ref, 'ref/tags/')
       uses: mr-smithers-excellent/docker-build-push@v7
       with:
         image: devbormon/rag
         target: build
-        tags: 1.0.1
+        tags: ${{github.ref_name}}
         registry: docker.io
+        enableBuildKit: true
+        cacheTo: type=gha,mode=max
+        cacheFrom: type=gha
         username: ${{ secrets.DOCKER_USERNAME }}
         password: ${{ secrets.DOCKER_PASSWORD }}
 
     - name: Docker image short description add
+      if: startsWith(github.ref, 'ref/tags/')
       uses: peter-evans/dockerhub-description@v5
       with:
-        username: ${{ secrets.DOCKERHUB_USERNAME }}
-        password: ${{ secrets.DOCKERHUB_PASSWORD }}
+        username: ${{ secrets.DOCKER_USERNAME }}
+        password: ${{ secrets.DOCKER_PASSWORD }}
         repository: devbormon/rag
         short-description: ${{ github.event.repository.description }}
