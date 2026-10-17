@@ -1,10 +1,6 @@
 services:
   app:
-    build:
-      context: .
-      dockerfile: Dockerfile
-      target: build
-    image: rag:1.0.0
+    image: devbormon/rag:1.0.0
     container_name: rag
     ports:
       - "8080:8080"
